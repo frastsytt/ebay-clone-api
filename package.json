@@ -1,0 +1,24 @@
+{
+  "name": "shelter",
+  "version": "1.0.0",
+  "description": "Animal shelter adoption page",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/frastsytt/shelter.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/frastsytt/shelter/issues"
+  },
+  "homepage": "https://github.com/frastsytt/shelter#readme",
+  "dependencies": {
+    "cors": "^2.8.5",
+    "express": "^4.17.3"
+  }
+}
