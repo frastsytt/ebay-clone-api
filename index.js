@@ -1,9 +1,15 @@
 const express = require('express');
 const cors = require('cors');
 const app = express();
+const path = require('path');
+
 
 app.use(cors());        // Avoid CORS errors in browsers
 app.use(express.json()) // Populate req.body
+
+app.get('/', function (req, res) {
+    res.sendFile(path.join(__dirname, '/index.html'));
+});
 
 const pets = [
     { id: 1, name: "Cizzbor", sex: "male", species: "cat" },

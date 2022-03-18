@@ -19,6 +19,7 @@
   "homepage": "https://github.com/frastsytt/shelter#readme",
   "dependencies": {
     "cors": "^2.8.5",
-    "express": "^4.17.3"
+    "express": "^4.17.3",
+    "path": "^0.12.7"
   }
 }
