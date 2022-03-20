@@ -25,6 +25,9 @@ app.get('/pets/:id', (req, res) => {
     if (typeof pets[req.params.id - 1] === 'undefined') {
         return res.status(404).send({ error: "Pet not found" })
     }
+    if (!req.params.id) {
+        return res.status(400).send({ error: 'One or all params are missing' })
+    }
     res.send(pets[req.params.id - 1])
 })
 
