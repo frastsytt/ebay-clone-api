@@ -1,5 +1,6 @@
 <!doctype html>
 <html lang="en" xmlns="http://www.w3.org/1999/html">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport"
@@ -10,6 +11,33 @@
     <link rel="stylesheet" type="text/css" href="style.css">
 </head>
 <body>
+
+
+<!-- Button to open the modal login form -->
+<button onclick="document.getElementById('id01').style.display='block'">Login</button>
+
+<!-- The Modal -->
+<div id="id01" class="modall">
+  <span onclick="document.getElementById('id01').style.display='none'"
+        class="close" title="Close Modal">&times;</span>
+
+    <!-- Modal Content -->
+    <form class="modall-content animate" action="">
+        <div class="container">
+            <label for="uname"><b>Username</b></label>
+            <input type="text" placeholder="Enter Username" name="uname" required>
+            <label for="psw"><b>Password</b></label>
+            <input type="password" placeholder="Enter Password" name="psw" required>
+
+            <button type="submit">Login</button>
+        </div>
+        <div class="container" style="background-color:#f1f1f1">
+            <button type="button" onclick="document.getElementById('id01').style.display='none'" class="cancelbtn">Cancel</button>
+        </div>
+    </form>
+</div>
+
+
 <div id = "app">
 <table id="gamesTable" class="table table-striped table-bordered">
 <tr>
@@ -20,7 +48,7 @@
     <td @click ="getPet(pet.id)">{{pet.name}}</td>
 </tr>
 </table>
-    <div id="petInfoModal" class="modal" tabindex="-1">
+    <div id="petInfoModal" class="modal animate" tabindex="-1">
         <div class="modal-dialog">
             <div class="modal-content">
                 <div class="modal-header">
@@ -29,7 +57,7 @@
 
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
-                <div class="modal-body">
+                <div class="modal-body animate">
                     <table class="table table-striped">
                         <tr><th>ID</th><td>{{petInModal.id}}</td></tr>
                         <tr><th>Name</th><td>{{petInModal.name}}</td></tr>
@@ -50,6 +78,18 @@
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js " integrity="sha384-ka7Sk0Gln4gmtz2MlQnikT1wXgYsOg+OMhuP+IlRH9sENBO0LRn5q+8nbTov4+1p " crossorigin="anonymous "></script>
 <script src="https://unpkg.com/vue@3"></script>
+
+<script>
+    // Get the modal
+    var modal = document.getElementById('id01');
+
+    // When the user clicks anywhere outside of the modal, close it
+    window.onclick = function(event) {
+        if (event.target == modal) {
+            modal.style.display = "none";
+        }
+    }
+</script>
 
 
 
