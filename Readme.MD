@@ -2,4 +2,5 @@
 
 ### Kuidas projekti jooksutada
 
-1. Kirjuta konsooli "npm start"
+1. Kirjuta konsooli "npm install"
+2. Kirjuta "node ."
