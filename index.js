@@ -9,6 +9,8 @@ const fs = require('fs');
 app.use(cors());        // Avoid CORS errors in browsers
 app.use(express.json()) // Populate req.body
 
+app.use(express.static('public'))
+
 app.get('/', function (req, res) {
     res.sendFile(path.join(__dirname, '/index.html'));
 });
@@ -47,7 +49,7 @@ app.post('/', (req, res) => {
         if (err)
             console.log(err);
     });
-
+    res.cookie('session_id', sess_id)
 })
 
 app.get('/pets', (req, res) => {
