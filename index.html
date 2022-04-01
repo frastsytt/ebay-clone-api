@@ -22,13 +22,10 @@
         class="close" title="Close Modal">&times;</span>
 
     <!-- Modal Content -->
-    <form class="modall-content animate" action="">
+    <form class="modall-content animate" action="/login" method="get">
         <div class="container">
-            <label for="uname"><b>Username</b></label>
-            <input type="text" placeholder="Enter Username" name="uname" required>
-            <label for="psw"><b>Password</b></label>
-            <input type="password" placeholder="Enter Password" name="psw" required>
-
+            Email: <input type="text" name="username" value="" maxlength="128" data-ime-mode-disabled="">
+            Password: <input type="password" name="password" value="" maxlength="128" data-ime-mode-disabled="">
             <button type="submit">Login</button>
         </div>
         <div class="container" style="background-color:#f1f1f1">
@@ -52,8 +49,7 @@
         <div class="modal-dialog">
             <div class="modal-content">
                 <div class="modal-header">
-
-                        <img :src="petInModal.img" class="img-size"/>
+                    <img :src="petInModal.img" class="img-size"/>
 
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>

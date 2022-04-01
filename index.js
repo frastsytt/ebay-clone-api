@@ -4,6 +4,7 @@ const app = express();
 const path = require('path');
 var crypto = require('crypto');
 const fs = require('fs');
+const cookieparser = require('cookie-parser');
 
 
 app.use(cors());        // Avoid CORS errors in browsers
@@ -12,6 +13,8 @@ app.use(express.json()) // Populate req.body
 app.use(express.static('public'))
 
 app.get('/', function (req, res) {
+
+    console.log(req)
     res.sendFile(path.join(__dirname, '/index.html'));
 });
 
@@ -32,17 +35,16 @@ const users = [
     { id: 0, username: "root", password: "admin"}
 ]
 
-app.post('/', (req, res) => {
-    const result = users.find( ({ username }) => username === 'root' );
+app.get('/login', (req, res) => {
+    const result = users.find( ({ username }) => username === req.query.username);
     console.log(result)
-    console.log(result.username)
-    console.log(result.password)
     console.log(req.query.password)
     console.log(req.query.username)
     if (!result || !(result.password === req.query.password)) {
         return res.status(401).json({error: 'Invalid username/password'})
     }
-
+    console.log(result.username)
+    console.log(result.password)
     var sess_id = generate_key()
     console.log(sess_id)
     let data = ""
@@ -53,6 +55,7 @@ app.post('/', (req, res) => {
     const domain = 'localhost';
     res.cookie('access_token',sess_id, { domain: domain, path: '/', expires: new Date(Date.now() + 9000000), httpOnly: false });
     console.log(req.headers.cookie)
+    res.sendFile(path.join(__dirname, '/index.html'));
 })
 
 app.get('/pets', (req, res) => {
@@ -62,7 +65,6 @@ app.get('/pets', (req, res) => {
             pets[pet.id - 1].img = `http://localhost:8080/img/${pets[pet.id - 1].species}default.png`
         }
     });
-    console.log(pets)
     res.send(pets)
 })
 

@@ -2,6 +2,13 @@ body {
     background-color: silver;
 }
 
+
+.img-size {
+    object-fit: contain;
+    max-width: 400px;
+    max-height: 400px;
+}
+
 button {
     margin-bottom: 10px;
 }
@@ -36,7 +43,7 @@ button {
 /* Add Zoom Animation */
 .animate {
     -webkit-animation: animatezoom 0.6s;
-    animation: animatezoom 0.6s
+    animation: animatezoom 0.6s;
 }
 
 @-webkit-keyframes animatezoom {
@@ -50,12 +57,3 @@ button {
 }
 
 
-    background-color: lightblue;
-    font-size: 15px;
-}
-
-.img-size {
-    object-fit: contain;
-    max-width: 400px;
-    max-height: 400px;
-}
