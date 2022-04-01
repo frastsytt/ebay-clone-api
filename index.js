@@ -22,9 +22,9 @@ var generate_key = function() {
 };
 
 const pets = [
-    { id: 1, name: "Cizzbor", sex: "male", species: "cat", img: "http://localhost:8080/img/cat-1.jpg"},
-    { id: 2, name: "Woowo", sex: "female", species: "dog" , img: "http://localhost:8080/img/dog-1.jpg"},
-    { id: 3, name: "Crazlinger", sex: "male", species: "cat", img: "http://localhost:8080/img/cat-2.jpg"}
+    { id: 1, name: "Cizzbor", sex: "male", species: "cat"},
+    { id: 2, name: "Woowo", sex: "female", species: "dog" },
+    { id: 3, name: "Crazlinger", sex: "male", species: "cat", image: ""}
 ]
 
 const users = [
