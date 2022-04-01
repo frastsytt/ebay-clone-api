@@ -22,9 +22,10 @@ var generate_key = function() {
 };
 
 const pets = [
-    { id: 1, name: "Cizzbor", sex: "male", species: "cat"},
-    { id: 2, name: "Woowo", sex: "female", species: "dog" },
-    { id: 3, name: "Crazlinger", sex: "male", species: "cat", image: ""}
+    { id: 1, name: "Cizzbor", sex: "male", species: "cat", img: "http://localhost:8080/img/cat-1.jpg"},
+    { id: 2, name: "Woowo", sex: "female", species: "dog" , img: "http://localhost:8080/img/dog-1.jpg"},
+    { id: 3, name: "Crazlinger", sex: "male", species: "cat", img: "http://localhost:8080/img/cat-2.jpg"},
+    { id: 4, name: "Hugh Mungus", sex: "male", species: "dog"}
 ]
 
 const users = [
@@ -49,10 +50,19 @@ app.post('/', (req, res) => {
         if (err)
             console.log(err);
     });
-    res.cookie('session_id', sess_id)
+    const domain = 'localhost';
+    res.cookie('access_token',sess_id, { domain: domain, path: '/', expires: new Date(Date.now() + 9000000), httpOnly: false });
+    console.log(req.headers.cookie)
 })
 
 app.get('/pets', (req, res) => {
+    pets.forEach(function(pet){
+        console.log(pet)
+        if (pet.img === undefined || pet.img === '') {
+            pets[pet.id - 1].img = `http://localhost:8080/img/${pets[pet.id - 1].species}default.png`
+        }
+    });
+    console.log(pets)
     res.send(pets)
 })
 
@@ -63,7 +73,10 @@ app.get('/pets/:id', (req, res) => {
     if (!req.params.id) {
         return res.status(400).send({ error: 'One or all params are missing' })
     }
-
+    if (pets[req.params.id - 1].img === undefined || pets[req.params.id - 1].img === '') {
+        pets[req.params.id - 1].img = `http://localhost:8080/img/${pets[req.params.id - 1].species}default.png`
+    }
+    console.log(pets[req.params.id - 1])
     res.send(pets[req.params.id - 1])
 })
 
