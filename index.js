@@ -1,13 +1,17 @@
 const express = require('express')
 const cors = require('cors')
 const app = express()
+const server = require('http').createServer(app);
+const WebSocket = require('ws');
 const port = 8080
 
 app.use(cors())        // Avoid CORS errors in browsers
 app.use(express.json()) // Populate req.body
 app.use(express.static('public')) // Public dir for images
 
-let times = [
+const wss = new WebSocket.Server({ server:server })
+
+let pets = [
 
     { id: 1, name: "Nurr", sex: "male", species: "cat", img: "http://localhost:3000/public/img/cat-1.jpg", bookedBy: ""},
     { id: 2, name: "Bella", sex: "female", species: "cat", img: "http://localhost:3000/public/img/cat-2.jpg", bookedBy: ""},
@@ -21,6 +25,22 @@ const users = [
 let sessions = [
     {id: 1, userId: 1}
 ]
+
+wss.on('connection', function connection(ws) {
+    console.log('A new client Connected!');
+    //ws.send('Welcome New Client!');
+  
+    ws.on('message', function incoming(message) {
+      console.log('received: %s', message);
+  
+      wss.clients.forEach(function each(client) {
+        if (client !== ws && client.readyState === WebSocket.OPEN) {
+          client.send(message);
+        }
+      });
+      
+    });
+  });
 
 function isValidFutureDate(req) {
     const date = new Date(req.body.day + ' ' + req.body.start);
@@ -54,7 +74,7 @@ function requireAdmin(req, res, next) {
 }
 
 function getTime(req) {
-    return times.findById(req.params.id);
+    return pets.findById(req.params.id);
 }
 
 Array.prototype.findById = function (value) {
@@ -72,11 +92,11 @@ function getUsernameBySession(session){
     return users.find(user => user.id === (sessions.find(id => id.id === session).userId))
 }
 
-app.get('/times', (req, res) => {
-    res.send(times)
+app.get('/pets', (req, res) => {
+    res.send(pets)
 })
 
-app.patch('/times/edit/:id', requireAdmin, (req, res) => {
+app.patch('/pets/edit/:id', requireAdmin, (req, res) => {
     // Check that :id is a valid number
     if ((Number.isInteger(req.params.id) && req.params.id > 0)) {
         return res.status(400).send({error: 'Invalid id'})
@@ -127,7 +147,7 @@ app.patch('/times/edit/:id', requireAdmin, (req, res) => {
     res.status(200).send(time)
 })
 
-app.post('/times', requireAdmin, (req, res) => {
+app.post('/pets', requireAdmin, (req, res) => {
     // Add name, day, start, end and phone if provided
     let newTime = {id: 0, name: "", sex: "", species: "", img: "", bookedBy: ""}
 
@@ -137,43 +157,43 @@ app.post('/times', requireAdmin, (req, res) => {
     newTime.species = req.body.start
     newTime.img = req.body.end
 
-    const ids = times.map(object => {
+    const ids = pets.map(object => {
         return object.id;
     });
     const maxTimeId = Math.max(...ids);
     newTime['id'] = maxTimeId + 1
-    times.push(newTime)
+    pets.push(newTime)
     res.status(200).send(newTime)
 })
 
 
-app.delete('/times/:id', requireAdmin, (req, res) => {
+app.delete('/pets/:id', requireAdmin, (req, res) => {
     // Check that :id is a valid number
     if ((Number.isInteger(req.params.id) && req.params.id > 0)) {
         return res.status(400).send({error: 'Invalid id'})
     }
 
     // Check that time with given id exists
-    if (!times.findById(req.params.id)) {
+    if (!pets.findById(req.params.id)) {
         return res.status(404).send({error: 'Time not found'})
     }
-    times = times.filter((time) => time.id !== parseInt(req.params.id));
+    pets = pets.filter((time) => time.id !== parseInt(req.params.id));
     res.status(200).end()
 })
 
-app.get('/times/available', (req, res) => {
-    let timesAvailable = [];
+app.get('/pets/available', (req, res) => {
+    let petsAvailable = [];
     let i = 0;
-    while (i < times.length) {
-        if (!times[i].bookedBy) {
-            timesAvailable.push(times[i]);
+    while (i < pets.length) {
+        if (!pets[i].bookedBy) {
+            petsAvailable.push(pets[i]);
         }
         i++;
     }
-    res.send(timesAvailable)
+    res.send(petsAvailable)
 })
 
-app.get('/times/:id', (req, res) => {
+app.get('/pets/:id', (req, res) => {
     let time = getTime(req);
     if (!time) {
         return res.status(404).send({error: "Time not found"})
@@ -181,14 +201,15 @@ app.get('/times/:id', (req, res) => {
     res.send(time)
 })
 
-app.patch('/times/:id', (req, res) => {
+app.patch('/pets/:id', (req, res) => {
     if (!req.body.id || !req.body.sessionId) {
         return res.status(400).send({error: 'You must log in to reserve a pet!'})
     }
-    index = times.findIndex(obj => obj.id == req.body.id)
-    times[index].bookedBy = getUsernameBySession(parseInt(req.body.sessionId)).username
+    index = pets.findIndex(obj => obj.id == req.body.id)
+    pets[index].bookedBy = getUsernameBySession(parseInt(req.body.sessionId)).username
     console.log(getUsernameBySession(parseInt(req.body.sessionId)))
-    console.log(times[index])
+    console.log(pets[index])
+    wss.clients.forEach(client => client.send(JSON.stringify(req.body.id)));
     res.status(200).end()
 })
 app.post('/users', (req, res) => {
@@ -233,6 +254,6 @@ app.delete('/sessions', (req, res) => {
     res.status(200).end()
 })
 
-app.listen(8080, () => {
+server.listen(8080, () => {
     console.log(`API up at: http://localhost:${port}`)
 })

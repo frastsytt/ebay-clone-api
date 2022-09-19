@@ -26,13 +26,13 @@
             <th>Species</th>
             <th></th>
         </tr>
-        <tr v-for="time in times">
-            <td><img :src="time.img" class="img-size"/></td>
-            <td>{{ time.name }}</td>
-            <td>{{ time.sex }}</td>
-            <td>{{ time.species }}</td>
+        <tr v-for="pet in pets" v-if="renderComponent">
+            <td><img :src="pet.img" class="img-size"/></td>
+            <td>{{ pet.name }}</td>
+            <td>{{ pet.sex }}</td>
+            <td>{{ pet.species }}</td>
             <td>
-                <button @click="book(time.id)" type="button">Reserve</button>
+                <button @click="book(pet.id)" type="button">Reserve</button>
             </td>
         </tr>
     </table>
@@ -93,9 +93,17 @@
                         <label for="nameEdit">Name:</label><br>
                         <input id="nameEdit" name="name" type="text" v-model="name"><br>
                         <label for="day">Sex:</label><br>
-                        <input id="day" name="day" type="text" v-model="day"><br>
+                        <select name="day" id="day" v-model="day">
+                            <option value="male">Male</option>
+                            <option value="female">Female</option>
+                        </select><br>
                         <label for="start">Species:</label><br>
-                        <input id="start" name="start" type="text" v-model="start"><br>
+                        <select name="start" id="species" v-model="start">
+                            <option value="cat">Cat</option>
+                            <option value="dog">Dog</option>
+                            <option value="fish">Fish</option>
+                            <option value="snake">Snake</option>
+                        </select><br>
                         <label for="end">Image URL(optional):</label><br>
                         <input id="end" name="end" type="text" v-model="end"><br>
                     </form>
@@ -107,12 +115,17 @@
             </div>
         </div>
     </div>
+    <button type="button" onclick="sendTestMessage()" class="btn btn-warning">Warning</button>
 </div>
 <script src="https://unpkg.com/vue@3.2.31/dist/vue.global.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.min.js"
         integrity="sha384-QJHtvGhmr9XOIpI6YVutG+2QOK9T+ZnN4kzFN1RtK3zEFEIsxhlmWl5/YESvpZ13"
         crossorigin="anonymous"></script>
 <script>
+    function sendTestMessage(){
+        vue.socket.send('hello')
+    }
+
     function tryToParseJSON(jsonString) {
         try {
             let o = JSON.parse(jsonString);
@@ -136,7 +149,7 @@
             return {
                 modalHandler: null,
                 timeInModal: null,
-                times: [],
+                pets: [],
                 activeTimeID: 0,
                 name: null,
                 phone: null,
@@ -149,17 +162,37 @@
                 modalMode: null,
                 newPet: [],
                 add: 1,
-                edit: 2
+                edit: 2,
+                socket: null,
+                renderComponent: true
             }
         },
         async created() {
-            let response = await this.send('GET', 'http://localhost:8080/times/available');
-            this.times = response.body;
+            let response = await this.send('GET', 'http://localhost:8080/pets/available');
+            this.pets = response.body;
             this.sessionId = localStorage.getItem("sessionId");
-        },
+
+            this.socket = new WebSocket("ws://localhost:8080/");
+            this.socket.binaryType = "arraybuffer";
+
+            this.socket.onopen = function(event){
+                this.socket.send('A new client has connected!')
+                }
+            this.socket.onmessage = function(event){
+                console.log(event)
+            }
+            
+
+            this.socket.addEventListener('message', (event) => { 
+                this.removeTime(parseInt(JSON.parse(event.data)))
+                console.log(this.pets)
+                this.$forceUpdate();
+            })
+            }
+        ,
         methods: {
             sortTimes: function () {
-                this.times.sort(function (a, b) {
+                this.pets.sort(function (a, b) {
                     if (a.day < b.day) {
                         return -1;
                     }
@@ -168,32 +201,27 @@
                     }
                     return 0;
                 })
-            }
-            ,
+            },
             showTimeDetailsModal: function (id) {
                 this.activeTimeID = id;
                 this.modalHandler = new bootstrap.Modal(document.getElementById('timeDetailsModal'), {})
                 this.modalHandler.show()
-            }
-            ,
+            },
             showAddEditModal: function () {
                 this.modalHandler = new bootstrap.Modal(document.getElementById('showAddEditModal'), {})
                 this.modalHandler.show()
-            }
-            ,
+            },
             showLoginModal: function () {
                 this.modalHandler = new bootstrap.Modal(document.getElementById('loginModal'), {})
                 this.modalHandler.show()
-            }
-            ,
+            },
             removeTime: function (id) {
-                this.times = this.times.filter(x => {
+                this.pets = this.pets.filter(x => {
                     return x.id !== id;
                 })
-            }
-            ,
+            },
             book: async function (id) {
-                let response = await this.send('PATCH', `http://localhost:8080/times/${id}`, {
+                let response = await this.send('PATCH', `http://localhost:8080/pets/${id}`, {
                     id: id,
                     sessionId: this.sessionId
                 });
@@ -201,10 +229,9 @@
                     alert("The booking was a success!");
                 }
 
-            }
-            ,
+            },
             getTime: async function () {
-                let response = await this.send('GET', `http://localhost:8080/times/${this.activeTimeID}`);
+                let response = await this.send('GET', `http://localhost:8080/pets/${this.activeTimeID}`);
                 if (response.body) {
                     this.name = response.body.name;
                     this.day = response.body.day;
@@ -212,8 +239,7 @@
                     this.end = response.body.end;
                     this.phone = response.body.phone;
                 }
-            }
-            ,
+            },
             logIn: async function () {
                 let response = await this.send('POST', `http://localhost:8080/sessions`, {
                     username: this.username,
@@ -224,8 +250,7 @@
                     localStorage.setItem("sessionId", this.sessionId);
                     this.modalHandler.hide()
                 }
-            }
-            ,
+            },
             register: async function () {
                 let response = await this.send('POST', `http://localhost:8080/users`, {
                     username: this.username,
@@ -237,8 +262,7 @@
                     this.modalHandler.hide()
                     alert("The registration was a success!");
                 }
-            }
-            ,
+            },
             logout: async function () {
                 let response = await this.send('DELETE', `http://localhost:8080/sessions`, {
                     sessionId: this.sessionId
@@ -248,10 +272,9 @@
                     localStorage.clear();
                     this.modalHandler.hide();
                 }
-            }
-            ,
+            },
             confirmEdit: async function () {
-                let response = await this.send('PATCH', `http://localhost:8080/times/edit/${this.activeTimeID}`, {
+                let response = await this.send('PATCH', `http://localhost:8080/pets/edit/${this.activeTimeID}`, {
                     sessionId: parseInt(this.sessionId),
                     name: this.name,
                     day: this.day,
@@ -261,15 +284,14 @@
                 if (response.ok) {
                     this.modalHandler.hide();
                     this.removeTime(this.activeTimeID);
-                    this.times.push(response.body);
+                    this.pets.push(response.body);
                     this.sortTimes()
                     alert("The item change was a success!");
                 }
-            }
-            ,
+            },
             deleteTime: async function (id) {
                 this.activeTimeID = id;
-                let response = await this.send('DELETE', `http://localhost:8080/times/${this.activeTimeID}`, {
+                let response = await this.send('DELETE', `http://localhost:8080/pets/${this.activeTimeID}`, {
                     sessionId: this.sessionId
                 });
                 if (response.ok) {
@@ -277,10 +299,9 @@
                     this.removeTime(id)
                     alert("The item deletion was a success!");
                 }
-            }
-            ,
+            },
             confirmAdd: async function () {
-                let response = await this.send('POST', `http://localhost:8080/times`, {
+                let response = await this.send('POST', `http://localhost:8080/pets`, {
                     sessionId: parseInt(this.sessionId),
                     name: this.name,
                     day: this.day,
@@ -290,12 +311,11 @@
                 });
                 if (response.ok) {
                     this.modalHandler.hide();
-                    this.times.push(response.body)
+                    this.pets.push(response.body)
                     this.sortTimes()
                     alert("The item got added!");
                 }
-            }
-            ,
+            },
             send: function (method, url, body) {
                 async function CheckError(response) {
                     if (response.status >= 200 && response.status <= 299) {
@@ -327,8 +347,8 @@
                         throw Error('Network error: ' + error);
                     });
             }
-        },
-    }).mount('#app')
+            },
+        }).mount('#app')
 </script>
 </body>
 </html>
