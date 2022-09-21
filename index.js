@@ -19,7 +19,10 @@ let pets = [
 ]
 const users = [
     {id: 1, username: "Admin", password: "Password", isAdmin: true},
-    {id: 2, username: "User", password: "Password", isAdmin: false}
+    {id: 2, username: "User", password: "Password", isAdmin: false},
+    {id: 3, username: "Roomet", password: "Password", isAdmin: true},
+    {id: 4, username: "Marcus", password: "Password", isAdmin: true},
+    {id: 5, username: "Steven", password: "Password", isAdmin: true}
 ]
 
 let sessions = [
@@ -27,8 +30,7 @@ let sessions = [
 ]
 
 wss.on('connection', function connection(ws) {
-    console.log('A new client Connected!');
-    //ws.send('Welcome New Client!');
+    ws.send('Welcome New Client!');
   
     ws.on('message', function incoming(message) {
       console.log('received: %s', message);
@@ -41,12 +43,6 @@ wss.on('connection', function connection(ws) {
       
     });
   });
-
-function isValidFutureDate(req) {
-    const date = new Date(req.body.day + ' ' + req.body.start);
-    if (!date.getDate()) return false;
-    return new Date() <= date;
-}
 
 function requireAdmin(req, res, next) {
     // Check that the sessionId is present
@@ -122,12 +118,6 @@ app.patch('/pets/edit/:id', requireAdmin, (req, res) => {
     }
     time.start = req.body.start
 
-    // Check that day is valid
-    if (!req.body.day || !isValidFutureDate(req)) {
-        return res.status(400).send({error: 'Invalid day'})
-    }
-    time.day = req.body.day
-
     // Check that end is valid
     if (!req.body.end || !/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/.test(req.body.end)) {
         return res.status(400).send({error: 'Invalid end'})
@@ -149,21 +139,25 @@ app.patch('/pets/edit/:id', requireAdmin, (req, res) => {
 
 app.post('/pets', requireAdmin, (req, res) => {
     // Add name, day, start, end and phone if provided
-    let newTime = {id: 0, name: "", sex: "", species: "", img: "", bookedBy: ""}
+    let newPet = {id: 0, name: "", sex: "", species: "", img: "", bookedBy: ""}
 
 
-    newTime.name = req.body.name
-    newTime.sex = req.body.day
-    newTime.species = req.body.start
-    newTime.img = req.body.end
+    newPet.name = req.body.name
+    newPet.sex = req.body.sex
+    newPet.species = req.body.species
+    newPet.img = req.body.img
 
     const ids = pets.map(object => {
         return object.id;
     });
+
     const maxTimeId = Math.max(...ids);
-    newTime['id'] = maxTimeId + 1
-    pets.push(newTime)
-    res.status(200).send(newTime)
+    newPet['id'] = maxTimeId + 1
+    pets.push(newPet)
+    // add a header-esque field to packet that we will send
+    websocketPacket = {action: 'add', content: newPet}
+    wss.clients.forEach(client => client.send(JSON.stringify(websocketPacket)));
+    res.status(200).send(newPet)
 })
 
 
@@ -209,7 +203,8 @@ app.patch('/pets/:id', (req, res) => {
     pets[index].bookedBy = getUsernameBySession(parseInt(req.body.sessionId)).username
     console.log(getUsernameBySession(parseInt(req.body.sessionId)))
     console.log(pets[index])
-    wss.clients.forEach(client => client.send(JSON.stringify(req.body.id)));
+    websocketPacket = {action: 'remove', content: req.body.id}
+    wss.clients.forEach(client => client.send(JSON.stringify(websocketPacket)));
     res.status(200).end()
 })
 app.post('/users', (req, res) => {

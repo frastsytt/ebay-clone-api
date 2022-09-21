@@ -16,6 +16,7 @@
     <div class="text-center">
         <button @click="showLoginModal" type="button" v-if="!sessionId">Login</button>
         <button @click="logout" type="button" v-if="sessionId">Logout</button>
+        <div class="card-header" id="displayedUsername"></div>
     </div>
     <button @click="showAddEditModal()" type="button">Add item to the list</button>
     <table id="timesTable" class="table table-striped table-bordered">
@@ -26,7 +27,7 @@
             <th>Species</th>
             <th></th>
         </tr>
-        <tr v-for="pet in pets" v-if="renderComponent">
+        <tr v-for="pet in pets">
             <td><img :src="pet.img" class="img-size"/></td>
             <td>{{ pet.name }}</td>
             <td>{{ pet.sex }}</td>
@@ -92,20 +93,20 @@
                     <form>
                         <label for="nameEdit">Name:</label><br>
                         <input id="nameEdit" name="name" type="text" v-model="name"><br>
-                        <label for="day">Sex:</label><br>
-                        <select name="day" id="day" v-model="day">
+                        <label for="sex">Sex:</label><br>
+                        <select name="sex" id="sex" v-model="sex">
                             <option value="male">Male</option>
                             <option value="female">Female</option>
                         </select><br>
-                        <label for="start">Species:</label><br>
-                        <select name="start" id="species" v-model="start">
+                        <label for="species">Species:</label><br>
+                        <select name="species" id="species" v-model="species">
                             <option value="cat">Cat</option>
                             <option value="dog">Dog</option>
                             <option value="fish">Fish</option>
                             <option value="snake">Snake</option>
                         </select><br>
-                        <label for="end">Image URL(optional):</label><br>
-                        <input id="end" name="end" type="text" v-model="end"><br>
+                        <label for="img">Image URL(optional):</label><br>
+                        <input id="img" name="img" type="img" v-model="img"><br>
                     </form>
                 </div>
                 <div class="modal-footer">
@@ -164,7 +165,10 @@
                 add: 1,
                 edit: 2,
                 socket: null,
-                renderComponent: true
+                renderComponent: true,
+                sex: null,
+                species: null,
+                img: null
             }
         },
         async created() {
@@ -175,17 +179,15 @@
             this.socket = new WebSocket("ws://localhost:8080/");
             this.socket.binaryType = "arraybuffer";
 
-            this.socket.onopen = function(event){
-                this.socket.send('A new client has connected!')
-                }
-            this.socket.onmessage = function(event){
-                console.log(event)
-            }
-            
+            this.socket.addEventListener('open', (event) => {
+                this.socket.send(`Connected with id: ${this.username}`)
+            })
 
-            this.socket.addEventListener('message', (event) => { 
-                this.removeTime(parseInt(JSON.parse(event.data)))
-                console.log(this.pets)
+            this.socket.addEventListener('message', (event) => {
+                parsedContent = JSON.parse(event.data)
+                console.log(parsedContent)
+                // construct functionname as string to be called
+                this.invokeFunction("web" + parsedContent.action, parsedContent.content)
                 this.$forceUpdate();
             })
             }
@@ -202,6 +204,11 @@
                     return 0;
                 })
             },
+            // helping function to call a function by string name
+            invokeFunction: function(name, args) {
+                return this[name](args)
+            }
+            ,
             showTimeDetailsModal: function (id) {
                 this.activeTimeID = id;
                 this.modalHandler = new bootstrap.Modal(document.getElementById('timeDetailsModal'), {})
@@ -220,6 +227,15 @@
                     return x.id !== id;
                 })
             },
+            webadd: function(packet){
+                this.pets.push(packet)
+                console.log(this.pets)
+            },
+            webremove: function(packet){
+                this.removeTime(parseInt(packet))
+                console.log(this.pets)
+            }
+            ,
             book: async function (id) {
                 let response = await this.send('PATCH', `http://localhost:8080/pets/${id}`, {
                     id: id,
@@ -249,6 +265,7 @@
                     this.sessionId = response.body.sessionId;
                     localStorage.setItem("sessionId", this.sessionId);
                     this.modalHandler.hide()
+                    document.getElementById('displayedUsername').innerText = this.username
                 }
             },
             register: async function () {
@@ -260,6 +277,7 @@
                     this.sessionId = response.body.sessionId;
                     localStorage.setItem("sessionId", this.sessionId);
                     this.modalHandler.hide()
+                    document.getElementById('displayedUsername').innerText = this.username
                     alert("The registration was a success!");
                 }
             },
@@ -270,6 +288,7 @@
                 if (response.ok) {
                     this.sessionId = null;
                     localStorage.clear();
+                    document.getElementById('displayedUsername').innerText = null
                     this.modalHandler.hide();
                 }
             },
@@ -304,14 +323,12 @@
                 let response = await this.send('POST', `http://localhost:8080/pets`, {
                     sessionId: parseInt(this.sessionId),
                     name: this.name,
-                    day: this.day,
-                    start: this.start,
-                    end: this.end,
-                    phone: this.phone
+                    sex: this.sex,
+                    species: this.species,
+                    img: this.img
                 });
                 if (response.ok) {
                     this.modalHandler.hide();
-                    this.pets.push(response.body)
                     this.sortTimes()
                     alert("The item got added!");
                 }
