@@ -168,7 +168,8 @@
                 renderComponent: true,
                 sex: null,
                 species: null,
-                img: null
+                img: null,
+                defaultImage: null
             }
         },
         async created() {
@@ -320,13 +321,17 @@
                 }
             },
             confirmAdd: async function () {
+                if (this.img == null) {
+                        this.defaultImage = `http://localhost:3000/public/img/${this.species}default.png`
+                    }
                 let response = await this.send('POST', `http://localhost:8080/pets`, {
                     sessionId: parseInt(this.sessionId),
                     name: this.name,
                     sex: this.sex,
                     species: this.species,
-                    img: this.img
+                    img: (this.img ? this.img : this.defaultImage)
                 });
+                this.defaultImage = null
                 if (response.ok) {
                     this.modalHandler.hide();
                     this.sortTimes()
