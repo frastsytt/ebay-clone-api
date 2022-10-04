@@ -16,9 +16,10 @@
     <div class="text-center">
         <button @click="showLoginModal" type="button" v-if="!sessionId">Login</button>
         <button @click="logout" type="button" v-if="sessionId">Logout</button>
-        <div class="card-header" id="displayedUsername"></div>
+        <button @click="adminPanelModal" type="button" v-if="adminStatus">Edit all pets</button>
+        <button @click="showAddEditModal()" type="button">Add new pet</button>
+        <div class="card-header" id="displayedUsername">{{username}}</div>
     </div>
-    <button @click="showAddEditModal()" type="button">Add item to the list</button>
     <table id="timesTable" class="table table-striped table-bordered">
         <tr>
             <th>Image</th>
@@ -60,25 +61,34 @@
             </div>
         </div>
     </div>
-    <div class="modal" id="timeDetailsModal" tabindex="-1">
-        <div class="modal-dialog">
+    <div class="modal" id="adminPanelModal" tabindex="-1">
+        <div class="modal-dialog modal-lg">
             <div class="modal-content">
                 <div class="modal-header">
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    <button class="btn-close" data-bs-dismiss="modal" type="button" aria-label="Close"></button>
                 </div>
-                <div class="modal-body">
-                    <p>Please fill out the form: </p><br>
-                    <form>
-                        <label for="name">Name:</label><br>
-                        <input v-model="name" type="text" id="name" name="name"><br>
-                        <label for="phone">Phone:</label><br>
-                        <input v-model="phone" type="number" id="phone" name="phone">
-                    </form>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
-                    <button @click="book()" class="btn btn-primary">Confirm</button>
-                </div>
+                    <div class="modal-body table-responsive">
+                        <p>Edit these pets: </p><br>
+                        <table id="timesTable" class="table table-striped table-bordered">
+                            <tr>
+                                <th>Image</th>
+                                <th>Name</th>
+                                <th>Sex</th>
+                                <th>Species</th>
+                                <th>Booked by</th>
+                                <th>Edit</th>
+                            </tr>
+                            <tr v-for="(pet, index) in sumPets" :key="index" :ref="'editref-'+pet.id" >
+                                <td contenteditable="false">{{ pet.img }}</td>
+                                <td contenteditable="false">{{ pet.name }}</td>
+                                <td contenteditable="false">{{ pet.sex }}</td>
+                                <td contenteditable="false">{{ pet.species }}</td>
+                                <td contenteditable="false">{{ pet.bookedBy }}</td>
+                                <td><button class="btn btn-warning btn-sm" v-if="!activeForm" @click="editForm(pet.id)">{{ pet.id }}</button></td>
+                            </tr>
+                        </table>
+                        <button class="btn btn-success" @click="confirmEdit">Confirm</button>
+                    </div>
             </div>
         </div>
     </div>
@@ -116,7 +126,7 @@
             </div>
         </div>
     </div>
-    <button type="button" onclick="sendTestMessage()" class="btn btn-warning">Warning</button>
+</div>
 </div>
 <script src="https://unpkg.com/vue@3.2.31/dist/vue.global.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.min.js"
@@ -149,9 +159,7 @@
         data() {
             return {
                 modalHandler: null,
-                timeInModal: null,
                 pets: [],
-                activeTimeID: 0,
                 name: null,
                 phone: null,
                 username: null,
@@ -169,26 +177,37 @@
                 sex: null,
                 species: null,
                 img: null,
-                defaultImage: null
+                defaultImage: null,
+                reservedPets: [],
+                adminStatus: true,
+                activeForm: null,
+                activeFormRef: null,
+                sumPets: null
             }
         },
         async created() {
-            let response = await this.send('GET', 'http://localhost:8080/pets/available');
-            this.pets = response.body;
             this.sessionId = localStorage.getItem("sessionId");
+
+            let avail = await this.send('GET', 'http://localhost:8080/pets/available');
+            this.pets = avail.body;
+
+            let reserved = await this.send('POST', 'http://localhost:8080/reservedpets', {
+                sessionId: this.sessionId
+            });
+            this.reservedPets = reserved.body;
+            // append both reserved and unreserved together
+            this.sumPets = [ ...this.pets, ...this.reservedPets ]
 
             this.socket = new WebSocket("ws://localhost:8080/");
             this.socket.binaryType = "arraybuffer";
 
-            this.socket.addEventListener('open', (event) => {
-                this.socket.send(`Connected with id: ${this.username}`)
-            })
-
             this.socket.addEventListener('message', (event) => {
+                console.log(event)
                 parsedContent = JSON.parse(event.data)
                 console.log(parsedContent)
                 // construct functionname as string to be called
                 this.invokeFunction("web" + parsedContent.action, parsedContent.content)
+                console.log()
                 this.$forceUpdate();
             })
             }
@@ -210,11 +229,6 @@
                 return this[name](args)
             }
             ,
-            showTimeDetailsModal: function (id) {
-                this.activeTimeID = id;
-                this.modalHandler = new bootstrap.Modal(document.getElementById('timeDetailsModal'), {})
-                this.modalHandler.show()
-            },
             showAddEditModal: function () {
                 this.modalHandler = new bootstrap.Modal(document.getElementById('showAddEditModal'), {})
                 this.modalHandler.show()
@@ -223,18 +237,38 @@
                 this.modalHandler = new bootstrap.Modal(document.getElementById('loginModal'), {})
                 this.modalHandler.show()
             },
-            removeTime: function (id) {
+            removePet: function (id) {
                 this.pets = this.pets.filter(x => {
                     return x.id !== id;
                 })
             },
+            adminPanelModal: function(){
+                this.modalHandler = new bootstrap.Modal(document.getElementById('adminPanelModal'), {})
+                this.modalHandler.show()
+            },
+            editForm: function(index = (this.pets.slice(-1)[0].id + 1)) {
+                console.log(index)
+                this.activeForm = this.$refs['editref-' + index]
+                this.activeFormRef = this.activeForm[0].__vnode.ref.r.substring(8)
+                this.activeForm[0].classList.add("table-warning");
+                for (var i = 0; i < this.activeForm[0].children.length; i++) {
+                    this.activeForm[0].children[i].setAttribute('contentEditable', true);
+                }
+            }
+            ,
             webadd: function(packet){
                 this.pets.push(packet)
-                console.log(this.pets)
+            },
+            webedit: function(packet){
+                // overwrite said pet object attributes rather than remove and add a new object
+                Object.assign(this.pets.findById(packet.id), packet);
             },
             webremove: function(packet){
-                this.removeTime(parseInt(packet))
-                console.log(this.pets)
+                this.removePet(parseInt(packet))
+            }
+            ,
+            webbroadcast: function(packet){
+                console.log(packet)
             }
             ,
             book: async function (id) {
@@ -267,6 +301,7 @@
                     localStorage.setItem("sessionId", this.sessionId);
                     this.modalHandler.hide()
                     document.getElementById('displayedUsername').innerText = this.username
+                    this.adminStatus = response.body.isAdmin
                 }
             },
             register: async function () {
@@ -294,18 +329,18 @@
                 }
             },
             confirmEdit: async function () {
-                let response = await this.send('PATCH', `http://localhost:8080/pets/edit/${this.activeTimeID}`, {
+                let response = await this.send('PATCH', `http://localhost:8080/pets/edit/${this.activeFormRef}`, {
                     sessionId: parseInt(this.sessionId),
-                    name: this.name,
-                    day: this.day,
-                    start: this.start,
-                    end: this.end,
+                    id: this.activeFormRef,
+                    name: this.activeForm[0].children[1].innerText,
+                    sex: this.activeForm[0].children[2].innerText,
+                    species: this.activeForm[0].children[3].innerText,
+                    img: this.activeForm[0].children[0].innerText,
+                    bookedBy: this.activeForm[0].children[4].innerText,
                 });
                 if (response.ok) {
                     this.modalHandler.hide();
-                    this.removeTime(this.activeTimeID);
-                    this.pets.push(response.body);
-                    this.sortTimes()
+                    this.activeForm = null
                     alert("The item change was a success!");
                 }
             },
@@ -316,7 +351,7 @@
                 });
                 if (response.ok) {
                     this.modalHandler.hide();
-                    this.removeTime(id)
+                    this.removePet(id)
                     alert("The item deletion was a success!");
                 }
             },
