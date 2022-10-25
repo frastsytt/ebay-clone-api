@@ -1,15 +1,25 @@
 const express = require('express')
 const cors = require('cors')
 const app = express()
-const server = require('http').createServer(app);
 const WebSocket = require('ws');
-const port = 8080
+const { syncBuiltinESMExports } = require('module');
+const fs = require('fs');
+const http = require('http');
+const https = require('https');
+const privateKey  = fs.readFileSync(__dirname + '/localhost+2-key.pem', 'utf8');
+const certificate = fs.readFileSync(__dirname + '/localhost+2.pem', 'utf8');
+
+const credentials = {key: privateKey, cert: certificate, requestCert: false, rejectUnauthorized: false};
+
+
+const httpServer = http.createServer(app);
+const httpsServer = https.createServer(credentials, app);  
 
 app.use(cors())        // Avoid CORS errors in browsers
 app.use(express.json()) // Populate req.body
 app.use(express.static('public')) // Public dir for images
 
-const wss = new WebSocket.Server({ server: server })
+const wss = new WebSocket.Server({ server: httpsServer })
 
 let pets = [
 
@@ -167,6 +177,12 @@ app.get('/pets/available', (req, res) => {
         }
         i++;
     }
+    console.log('waiting')
+
+    var waitTill = new Date(new Date().getTime() + 3 * 1000);
+    while(waitTill > new Date()){}
+
+    console.log('sent')
     res.send(petsAvailable)
 })
 
@@ -235,6 +251,10 @@ app.delete('/sessions', (req, res) => {
     res.status(200).end()
 })
 
-server.listen(8080, () => {
-    console.log(`API up at: http://localhost:${port}`)
+httpServer.listen(8080, () => {
+    console.log(`HTTP API up at: http://localhost:8080`)
+})
+
+httpsServer.listen(443, () => {
+    console.log(`HTTPS API up at: https://localhost:443`)
 })

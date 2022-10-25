@@ -187,6 +187,9 @@
         },
         async created() {
             this.sessionId = localStorage.getItem("sessionId");
+            this.pets = JSON.parse(localStorage.getItem('sumPets')).filter(pet => pet.bookedBy == "")
+            this.reservedPets = JSON.parse(localStorage.getItem('sumPets')).filter(pet => pet.bookedBy !== "")
+
 
             let avail = await this.send('GET', 'http://localhost:8080/pets/available');
             this.pets = avail.body;
@@ -197,6 +200,7 @@
             this.reservedPets = reserved.body;
             // append both reserved and unreserved together
             this.sumPets = [ ...this.pets, ...this.reservedPets ]
+            localStorage.setItem('sumPets', JSON.stringify(this.sumPets))
 
             this.socket = new WebSocket("ws://localhost:8080/");
             this.socket.binaryType = "arraybuffer";
@@ -258,13 +262,36 @@
             ,
             webadd: function(packet){
                 this.pets.push(packet)
+                this.sumPets = [ ...this.pets, ...this.reservedPets ]
+                localStorage.setItem('sumPets', JSON.stringify(this.sumPets))
             },
             webedit: function(packet){
                 // overwrite said pet object attributes rather than remove and add a new object
-                Object.assign(this.pets.findById(packet.id), packet);
+                if (packet.bookedBy !== ""){
+                    var petIndex = this.pets.findIndex(object => {
+                    return object.id === packet.id;
+                    })
+                    this.pets.splice(petIndex, 1);
+                    this.reservedPets.push(packet)
+                    this.sumPets = [ ...this.pets, ...this.reservedPets ]
+                    localStorage.setItem('sumPets', JSON.stringify(this.sumPets))
+                }
+                else {
+                    try {
+                        Object.assign(this.pets.findById(packet.id), packet);
+                    }
+                    catch (error){
+                        Object.assign(this.reservedPets.findById(packet.id), packet);
+                    }
+                
+                    this.sumPets = [ ...this.pets, ...this.reservedPets ]
+                    localStorage.setItem('sumPets', JSON.stringify(this.sumPets))
+                }
             },
             webremove: function(packet){
                 this.removePet(parseInt(packet))
+                this.sumPets = [ ...this.pets, ...this.reservedPets ]
+                localStorage.setItem('sumPets', JSON.stringify(this.sumPets))
             }
             ,
             webbroadcast: function(packet){
@@ -336,7 +363,7 @@
                     sex: this.activeForm[0].children[2].innerText,
                     species: this.activeForm[0].children[3].innerText,
                     img: this.activeForm[0].children[0].innerText,
-                    bookedBy: this.activeForm[0].children[4].innerText,
+                    bookedBy: this.activeForm[0].children[4].innerText ? this.activeForm[0].children[4].innerText : ""
                 });
                 if (response.ok) {
                     this.modalHandler.hide();
