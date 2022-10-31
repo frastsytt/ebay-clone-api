@@ -179,8 +179,8 @@ app.get('/pets/available', (req, res) => {
     }
     console.log('waiting')
 
-    var waitTill = new Date(new Date().getTime() + 3 * 1000);
-    while(waitTill > new Date()){}
+    //var waitTill = new Date(new Date().getTime() + 3 * 1000);
+    //while(waitTill > new Date()){}
 
     console.log('sent')
     res.send(petsAvailable)

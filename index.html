@@ -187,9 +187,13 @@
         },
         async created() {
             this.sessionId = localStorage.getItem("sessionId");
-            this.pets = JSON.parse(localStorage.getItem('sumPets')).filter(pet => pet.bookedBy == "")
-            this.reservedPets = JSON.parse(localStorage.getItem('sumPets')).filter(pet => pet.bookedBy !== "")
-
+            try {
+                this.pets = JSON.parse(localStorage.getItem('sumPets')).filter(pet => pet.bookedBy == "")
+                this.reservedPets = JSON.parse(localStorage.getItem('sumPets')).filter(pet => pet.bookedBy !== "")
+            }
+            catch(err) {
+                console.log(err)
+            }
 
             let avail = await this.send('GET', 'http://localhost:8080/pets/available');
             this.pets = avail.body;

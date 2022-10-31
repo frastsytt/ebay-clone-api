@@ -11,9 +11,9 @@
 - Admin konto testimiseks: username: "Admin", password: "Password"
 
 ### HTTPS tugi
-1. Lae alla selline tööriist nagu mkcert https://mkcert.org/
+1. Lae alla selline tööriist nagu mkcert https://mkcert.org/ (selle jaoks saab kasutada chocolatey't: chocolatey install mkcert)
 2. Käivita antud käsud admin õigustega terminalis:
-    mkcert -install
+    mkcert -install,
     mkcert localhost 127.0.0.1 ::1
 3. Aseta kaks loodud faili projekti juurkausta, ja kontrolli, et index.js viitab õigetele failidele nendel ridadel.
     const privateKey  = fs.readFileSync(__dirname + '/localhost+2-key.pem', 'utf8');
