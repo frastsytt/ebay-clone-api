@@ -21,8 +21,11 @@
     "cors": "^2.8.5",
     "express": "^4.17.3",
     "express-ws": "^5.0.2",
+    "googleapis": "^108.0.1",
     "path": "^0.12.7",
     "socket.io": "^4.5.2",
+    "swagger-autogen": "^2.22.0",
+    "swagger-ui-express": "^4.5.0",
     "ws": "^8.8.1"
   }
 }

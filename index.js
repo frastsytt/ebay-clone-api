@@ -8,7 +8,10 @@ const http = require('http');
 const https = require('https');
 const privateKey  = fs.readFileSync(__dirname + '/localhost+2-key.pem', 'utf8');
 const certificate = fs.readFileSync(__dirname + '/localhost+2.pem', 'utf8');
-
+const { google } = require('googleapis');
+const swaggerUi = require('swagger-ui-express');
+const swaggerDocument = require('./swagger.json');
+app.use('/docs', swaggerUi.serve, swaggerUi.setup(swaggerDocument));
 const credentials = {key: privateKey, cert: certificate, requestCert: false, rejectUnauthorized: false};
 
 
