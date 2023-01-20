@@ -58,6 +58,7 @@
                     <button @click="register" class="btn btn-secondary" type="button">Register</button>
                     <button @click="logIn" class="btn btn-primary" type="button">Confirm login</button>
                 </div>
+                <div id="signInDiv" style="margin-top: 2em;"></div>
             </div>
         </div>
     </div>
@@ -128,11 +129,50 @@
     </div>
 </div>
 </div>
+<script src="https://accounts.google.com/gsi/client" async defer></script>
 <script src="https://unpkg.com/vue@3.2.31/dist/vue.global.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.min.js"
         integrity="sha384-QJHtvGhmr9XOIpI6YVutG+2QOK9T+ZnN4kzFN1RtK3zEFEIsxhlmWl5/YESvpZ13"
         crossorigin="anonymous"></script>
 <script>
+    // on load window set google button and client id
+    async function handleResponse(authData) {
+        console.log(authData)
+        const response = await fetch("https://localhost:443/auth/google/callback", {
+        method: 'POST',
+        headers: {
+        'Accept': 'application/json',
+        'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(authData)
+        });
+
+        response.json().then(data => {
+        localStorage.setItem('sessionId', JSON.stringify(data.sessionId))
+        });
+    }
+
+
+    window.onload = function () {
+        google.accounts.id.initialize({
+            client_id: '589975274851-iablj17qj6j9a8a6fqvotgvsd623aodp.apps.googleusercontent.com',
+            callback: handleResponse
+        });
+        // Google prompt
+        google.accounts.id.prompt();
+
+        google.accounts.id.renderButton(
+            document.getElementById('signInDiv'),
+            {
+                theme: 'filled_blue',
+                size: 'large',
+                text: 'long',
+                type: 'standard'
+            }
+        )
+    };
+
+
     function sendTestMessage(){
         vue.socket.send('hello')
     }
@@ -195,10 +235,10 @@
                 console.log(err)
             }
 
-            let avail = await this.send('GET', 'http://localhost:8080/pets/available');
+            let avail = await this.send('GET', 'https://localhost:443/pets/available');
             this.pets = avail.body;
 
-            let reserved = await this.send('POST', 'http://localhost:8080/reservedpets', {
+            let reserved = await this.send('POST', 'https://localhost:443/reservedpets', {
                 sessionId: this.sessionId
             });
             this.reservedPets = reserved.body;
@@ -206,7 +246,7 @@
             this.sumPets = [ ...this.pets, ...this.reservedPets ]
             localStorage.setItem('sumPets', JSON.stringify(this.sumPets))
 
-            this.socket = new WebSocket("ws://localhost:8080/");
+            this.socket = new WebSocket("ws://localhost:443/");
             this.socket.binaryType = "arraybuffer";
 
             this.socket.addEventListener('message', (event) => {
@@ -303,7 +343,7 @@
             }
             ,
             book: async function (id) {
-                let response = await this.send('PATCH', `http://localhost:8080/pets/${id}`, {
+                let response = await this.send('PATCH', `https://localhost:443/pets/${id}`, {
                     id: id,
                     sessionId: this.sessionId
                 });
@@ -313,7 +353,7 @@
 
             },
             getTime: async function () {
-                let response = await this.send('GET', `http://localhost:8080/pets/${this.activeTimeID}`);
+                let response = await this.send('GET', `https://localhost:443/pets/${this.activeTimeID}`);
                 if (response.body) {
                     this.name = response.body.name;
                     this.day = response.body.day;
@@ -323,7 +363,7 @@
                 }
             },
             logIn: async function () {
-                let response = await this.send('POST', `http://localhost:8080/sessions`, {
+                let response = await this.send('POST', `https://localhost:443/sessions`, {
                     username: this.username,
                     password: this.password
                 });
@@ -336,7 +376,7 @@
                 }
             },
             register: async function () {
-                let response = await this.send('POST', `http://localhost:8080/users`, {
+                let response = await this.send('POST', `https://localhost:443/users`, {
                     username: this.username,
                     password: this.password
                 });
@@ -349,7 +389,7 @@
                 }
             },
             logout: async function () {
-                let response = await this.send('DELETE', `http://localhost:8080/sessions`, {
+                let response = await this.send('DELETE', `https://localhost:443/sessions`, {
                     sessionId: this.sessionId
                 });
                 if (response.ok) {
@@ -360,13 +400,13 @@
                 }
             },
             confirmEdit: async function () {
-                let response = await this.send('PATCH', `http://localhost:8080/pets/edit/${this.activeFormRef}`, {
+                let response = await this.send('PATCH', `https://localhost:443/pets/edit/${this.activeFormRef}`, {
                     sessionId: parseInt(this.sessionId),
                     id: this.activeFormRef,
                     name: this.activeForm[0].children[1].innerText,
                     sex: this.activeForm[0].children[2].innerText,
                     species: this.activeForm[0].children[3].innerText,
-                    img: this.activeForm[0].children[0].innerText,
+                    img: window.location.origin + this.activeForm[0].children[0].innerText,
                     bookedBy: this.activeForm[0].children[4].innerText ? this.activeForm[0].children[4].innerText : ""
                 });
                 if (response.ok) {
@@ -377,7 +417,7 @@
             },
             deleteTime: async function (id) {
                 this.activeTimeID = id;
-                let response = await this.send('DELETE', `http://localhost:8080/pets/${this.activeTimeID}`, {
+                let response = await this.send('DELETE', `https://localhost:443/pets/${this.activeTimeID}`, {
                     sessionId: this.sessionId
                 });
                 if (response.ok) {
@@ -388,9 +428,9 @@
             },
             confirmAdd: async function () {
                 if (this.img == null) {
-                        this.defaultImage = `http://localhost:3000/public/img/${this.species}default.png`
+                        this.defaultImage = `${window.location.origin}/${this.species}default.png`
                     }
-                let response = await this.send('POST', `http://localhost:8080/pets`, {
+                let response = await this.send('POST', `https://localhost:443/pets`, {
                     sessionId: parseInt(this.sessionId),
                     name: this.name,
                     sex: this.sex,

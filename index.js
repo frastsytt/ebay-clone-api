@@ -13,8 +13,8 @@ const swaggerUi = require('swagger-ui-express');
 const swaggerDocument = require('./swagger.json');
 app.use('/docs', swaggerUi.serve, swaggerUi.setup(swaggerDocument));
 const credentials = {key: privateKey, cert: certificate, requestCert: false, rejectUnauthorized: false};
-
-
+const {OAuth2Client} = require('google-auth-library');
+const googleOAuth2Client = new OAuth2Client('589975274851-iablj17qj6j9a8a6fqvotgvsd623aodp.apps.googleusercontent.com');
 const httpServer = http.createServer(app);
 const httpsServer = https.createServer(credentials, app);  
 
@@ -24,18 +24,47 @@ app.use(express.static('public')) // Public dir for images
 
 const wss = new WebSocket.Server({ server: httpsServer })
 
+app.get('/', function(req, res){
+    res.sendFile(__dirname + '\\index.html')
+});
+
+async function fetchGoogle(token) {
+    const ticket = await googleOAuth2Client.verifyIdToken({
+        idToken: token,
+        audience: '589975274851-iablj17qj6j9a8a6fqvotgvsd623aodp.apps.googleusercontent.com',
+    });
+    return ticket.getPayload();
+}
+
+app.post('/auth/google/callback', async function(req, res){
+    try {
+        le_response = await fetchGoogle(req.body.credential)
+        let user = users.find((user) => user.email === le_response.email)
+        if (!user) {
+            user = {id: users.length + 1, email: le_response.email, username: le_response.name, password: "", isAdmin: false}
+            users.push(user)
+        }
+        sessions.push({id: sessions.length + 1, userId: user.id})
+        console.log(sessions)
+        return res.status(200).send({sessionId: sessions.length})
+    }
+    catch {
+        return res.status(400).send( {error: 'Google authentication unsuccessful'})
+    }
+})
+
 let pets = [
 
-    { id: 1, name: "Nurr", sex: "male", species: "cat", img: "http://localhost:3000/public/img/cat-1.jpg", bookedBy: "" },
-    { id: 2, name: "Bella", sex: "female", species: "cat", img: "http://localhost:3000/public/img/cat-2.jpg", bookedBy: "" },
-    { id: 3, name: "Bosse", sex: "male", species: "dog", img: "http://localhost:3000/public/img/dog-1.jpg", bookedBy: "" }
+    { id: 1, name: "Nurr", sex: "male", species: "cat", img: "https://localhost:443/img/cat-1.jpg", bookedBy: "" },
+    { id: 2, name: "Bella", sex: "female", species: "cat", img: "https://localhost:443/img/cat-2.jpg", bookedBy: "" },
+    { id: 3, name: "Bosse", sex: "male", species: "dog", img: "https://localhost:443/img/dog-1.jpg", bookedBy: "" }
 ]
 const users = [
-    { id: 1, username: "Admin", password: "Password", isAdmin: true },
-    { id: 2, username: "User", password: "Password", isAdmin: false },
-    { id: 3, username: "Roomet", password: "Password", isAdmin: true },
-    { id: 4, username: "Marcus", password: "Password", isAdmin: true },
-    { id: 5, username: "Steven", password: "Password", isAdmin: true }
+    { id: 1, email: 'admin.sytt@gmail.com', username: "Admin", password: "Password", isAdmin: true },
+    { id: 2, email: 'user.sytt@gmail.com', username: "User", password: "Password", isAdmin: false },
+    { id: 3, email: 'roomet.sytt@gmail.com', username: "Roomet", password: "Password", isAdmin: true },
+    { id: 4, email: 'marcus.sytt@gmail.com', username: "Marcus", password: "Password", isAdmin: true },
+    { id: 5, email: 'steven.mirontsuk@voco.ee', username: "Steven", password: "Password", isAdmin: true }
 ]
 
 let sessions = [
@@ -43,10 +72,7 @@ let sessions = [
 ]
 
 wss.on('connection', function connection(ws) {
-    console.log('person connected')
     ws.on('message', function incoming(message) {
-        console.log('received: %s', message);
-
         wss.clients.forEach(function each(client) {
             if (client !== ws && client.readyState === WebSocket.OPEN) {
                 client.send(message);
@@ -110,7 +136,6 @@ app.patch('/pets/edit/:id', requireAdmin, (req, res) => {
     if ((Number.isInteger(req.params.id) && req.params.id > 0)) {
         return res.status(400).send({ error: 'Invalid id' })
     }
-    console.log(getTime(req))
     let petBeingEdited = getTime(req);
     // Check that time with given id exists
     if (!petBeingEdited) {
@@ -120,7 +145,7 @@ app.patch('/pets/edit/:id', requireAdmin, (req, res) => {
     petBeingEdited.sex = req.body.sex
     petBeingEdited.species = req.body.species
     if (req.body.img == null || !petBeingEdited.img) {
-        petBeingEdited.img = `http://localhost:3000/public/img/${req.body.species}default.png`
+        petBeingEdited.img = `/${req.body.species}default.png`
     }
     else{
         petBeingEdited.img = req.body.img
@@ -128,7 +153,6 @@ app.patch('/pets/edit/:id', requireAdmin, (req, res) => {
 
     petBeingEdited.bookedBy = req.body.bookedBy
     websocketPacket = { action: 'edit', content: petBeingEdited }
-    console.log(websocketPacket)
     wss.clients.forEach(client => client.send(JSON.stringify(websocketPacket)));
     res.status(200).send(petBeingEdited)
 })
@@ -180,12 +204,6 @@ app.get('/pets/available', (req, res) => {
         }
         i++;
     }
-    console.log('waiting')
-
-    //var waitTill = new Date(new Date().getTime() + 3 * 1000);
-    //while(waitTill > new Date()){}
-
-    console.log('sent')
     res.send(petsAvailable)
 })
 
@@ -203,13 +221,11 @@ app.patch('/pets/:id', (req, res) => {
     }
     index = pets.findIndex(obj => obj.id == req.body.id)
     pets[index].bookedBy = getUsernameBySession(parseInt(req.body.sessionId)).username
-    console.log(getUsernameBySession(parseInt(req.body.sessionId)))
-    console.log(pets[index])
     websocketPacket = { action: 'remove', content: req.body.id }
     wss.clients.forEach(client => client.send(JSON.stringify(websocketPacket)));
     res.status(200).end()
 })
-app.post('/users', (req, res) => {
+app.post('/ ', (req, res) => {
     if (!req.body.username || !req.body.password) {
         return res.status(400).send({ error: 'One or all params are missing' })
     }
@@ -230,6 +246,7 @@ app.post('/users', (req, res) => {
     res.status(201).send({ sessionId: sessions.length })
 })
 app.post('/sessions', (req, res) => {
+
     if (!req.body.username || !req.body.password) {
         return res.status(400).send({ error: 'One or all params are missing' })
     }
