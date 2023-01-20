@@ -63,7 +63,7 @@ const users = [
     { id: 1, email: 'admin.sytt@gmail.com', username: "Admin", password: "Password", isAdmin: true },
     { id: 2, email: 'user.sytt@gmail.com', username: "User", password: "Password", isAdmin: false },
     { id: 3, email: 'roomet.sytt@gmail.com', username: "Roomet", password: "Password", isAdmin: true },
-    { id: 4, email: 'marcus.sytt@gmail.com', username: "Marcus", password: "Password", isAdmin: true },
+    { id: 4, email: 'marcus.kruuleht@voco.ee', username: "Marcus", password: "Password", isAdmin: true },
     { id: 5, email: 'steven.mirontsuk@voco.ee', username: "Steven", password: "Password", isAdmin: true }
 ]
 

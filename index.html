@@ -428,7 +428,7 @@
             },
             confirmAdd: async function () {
                 if (this.img == null) {
-                        this.defaultImage = `${window.location.origin}/${this.species}default.png`
+                        this.defaultImage = `https://localhost/img/${this.species}default.png`
                     }
                 let response = await this.send('POST', `https://localhost:443/pets`, {
                     sessionId: parseInt(this.sessionId),
