@@ -14,11 +14,12 @@
 <body>
 <div id="app">
     <div class="text-center">
-        <button @click="showLoginModal" type="button" v-if="!sessionId">Login</button>
-        <button @click="logout" type="button" v-if="sessionId">Logout</button>
+        <button @click="showLoginModal" type="button" v-if="!JWTTOKEN">Login</button>
+        <button @click="logout" type="button" v-if="JWTTOKEN">Logout</button>
         <button @click="adminPanelModal" type="button" v-if="adminStatus">Edit all pets</button>
-        <button @click="showAddEditModal()" type="button">Add new pet</button>
-        <div class="card-header" id="displayedUsername">{{username}}</div>
+        <button @click="showAddEditModal()" type="button" v-if="adminStatus">Add new pet</button>
+        <button @click="showLogModal()" type="button" v-if="adminStatus">Check logs</button>
+        <div class="card-header" id="displayedUsername" v-if="username"><b>{{username}}</b></div>
     </div>
     <table id="timesTable" class="table table-striped table-bordered">
         <tr>
@@ -28,7 +29,7 @@
             <th>Species</th>
             <th></th>
         </tr>
-        <tr v-for="pet in pets">
+        <tr v-for="pet in freePets">
             <td><img :src="pet.img" class="img-size"/></td>
             <td>{{ pet.name }}</td>
             <td>{{ pet.sex }}</td>
@@ -93,6 +94,43 @@
             </div>
         </div>
     </div>
+    <div class="modal" id="showLogModal" tabindex="-1">
+        <div class="modal-dialog modal-xl">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Logs</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <table class="table table-striped">
+                        <thead>
+                        <tr>
+                            <th>Timestamp</th>
+                            <th>Method</th>
+                            <th>Protocol</th>
+                            <th>Url</th>
+                            <th>User</th>
+                            <th>Remote address</th>
+                        </tr>
+                        </thead>
+                        <tbody>
+                        <tr v-for="log in logs">
+                            <td>{{ log.date }}</td>
+                            <td>{{ log.method }}</td>
+                            <td>{{ log.protocol }}</td>
+                            <td>{{ log.url }}</td>
+                            <td>{{ log.eventdata }}</td>
+                            <td>{{ log.remoteaddress }}</td>
+                        </tr>
+                        </tbody>
+                    </table>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Back</button>
+                </div>
+            </div>
+        </div>
+    </div>
     <div class="modal" id="showAddEditModal" tabindex="-1">
         <div class="modal-dialog">
             <div class="modal-content">
@@ -146,10 +184,12 @@
         },
         body: JSON.stringify(authData)
         });
-
-        response.json().then(data => {
-        localStorage.setItem('sessionId', JSON.stringify(data.sessionId))
+        if (response.ok) {
+            response.json().then(data => {
+            localStorage.setItem('JWTTOKEN', data.JWTTOKEN)
         });
+        }
+        location.reload();
     }
 
 
@@ -199,15 +239,16 @@
         data() {
             return {
                 modalHandler: null,
-                pets: [],
+                freePets: [],
                 name: null,
                 phone: null,
                 username: null,
                 password: null,
+                email: null,
                 day: null,
                 start: null,
                 end: null,
-                sessionId: null,
+                JWTTOKEN: null,
                 modalMode: null,
                 newPet: [],
                 add: 1,
@@ -219,59 +260,67 @@
                 img: null,
                 defaultImage: null,
                 reservedPets: [],
-                adminStatus: true,
+                adminStatus: null,
                 activeForm: null,
                 activeFormRef: null,
-                sumPets: null
+                sumPets: null,
+                logs: [],
+                authHeaders: null,
+                defaultHeaders: {
+                    'Content-Type': 'application/json'
+                }
             }
         },
         async created() {
-            this.sessionId = localStorage.getItem("sessionId");
-            try {
-                this.pets = JSON.parse(localStorage.getItem('sumPets')).filter(pet => pet.bookedBy == "")
-                this.reservedPets = JSON.parse(localStorage.getItem('sumPets')).filter(pet => pet.bookedBy !== "")
-            }
-            catch(err) {
-                console.log(err)
+            // re-read JWT token
+            this.JWTTOKEN = localStorage.getItem('JWTTOKEN');
+            this.authHeaders = {
+                'authorization': 'Bearer ' + this.JWTTOKEN,
+                'Content-Type': 'application/json'}
+            if (localStorage.sumPets) {
+                try {
+                    // load pets from LS cache and split them
+                    this.freePets = JSON.parse(localStorage.getItem('sumPets')).filter(pet => pet.bookedBy == "")
+                    this.reservedPets = JSON.parse(localStorage.getItem('sumPets')).filter(pet => pet.bookedBy !== "")
+                }
+                catch(err) {
+                    console.log(err)
+                }
             }
 
-            let avail = await this.send('GET', 'https://localhost:443/pets/available');
-            this.pets = avail.body;
-
-            let reserved = await this.send('POST', 'https://localhost:443/reservedpets', {
-                sessionId: this.sessionId
+            if (this.JWTTOKEN) {
+                await this.send('GET', 'https://localhost:443/refreshCredentials', this.authHeaders).then(response => {
+                    this.username = response.body.username
+                    this.adminStatus = response.body.isAdmin
+                    console.log('refreshing')
+                });
+                await this.send('POST', 'https://localhost:443/reservedpets', this.authHeaders).then(response => {
+                this.reservedPets = response.body
             });
-            this.reservedPets = reserved.body;
+            }
+            
+            await this.send('GET', 'https://localhost:443/pets/available', this.defaultHeaders).then(response => {
+                this.freePets = response.body
+            })
+
+            
             // append both reserved and unreserved together
-            this.sumPets = [ ...this.pets, ...this.reservedPets ]
+            this.sumPets = [ ...this.freePets, ...this.reservedPets ]
             localStorage.setItem('sumPets', JSON.stringify(this.sumPets))
 
-            this.socket = new WebSocket("ws://localhost:443/");
+            this.socket = new WebSocket("wss://localhost:443/");
             this.socket.binaryType = "arraybuffer";
 
             this.socket.addEventListener('message', (event) => {
-                console.log(event)
                 parsedContent = JSON.parse(event.data)
                 console.log(parsedContent)
                 // construct functionname as string to be called
                 this.invokeFunction("web" + parsedContent.action, parsedContent.content)
-                console.log()
                 this.$forceUpdate();
             })
             }
         ,
         methods: {
-            sortTimes: function () {
-                this.pets.sort(function (a, b) {
-                    if (a.day < b.day) {
-                        return -1;
-                    }
-                    if (a.day > b.day) {
-                        return 1;
-                    }
-                    return 0;
-                })
-            },
             // helping function to call a function by string name
             invokeFunction: function(name, args) {
                 return this[name](args)
@@ -281,12 +330,29 @@
                 this.modalHandler = new bootstrap.Modal(document.getElementById('showAddEditModal'), {})
                 this.modalHandler.show()
             },
+            showLogModal: async function () {
+                console.log('Opening logs', this.logs.length)
+                if (this.logs.length == 0) {
+                    console.log('Requesting logs')
+                    let jwtToken = localStorage.getItem("JWTTOKEN")
+                    if(jwtToken){
+                      let response = await this.send('GET', `https://localhost:443/logs`, {
+                          'Authorization': `Bearer ${jwtToken}`}
+                      );
+                      if (response.ok) {
+                          this.logs = response.body
+                      }
+                    }
+                }
+                this.modalHandler = new bootstrap.Modal(document.getElementById('showLogModal'), {})
+                this.modalHandler.show()
+            },
             showLoginModal: function () {
                 this.modalHandler = new bootstrap.Modal(document.getElementById('loginModal'), {})
                 this.modalHandler.show()
             },
             removePet: function (id) {
-                this.pets = this.pets.filter(x => {
+                this.freePets = this.freePets.filter(x => {
                     return x.id !== id;
                 })
             },
@@ -294,7 +360,7 @@
                 this.modalHandler = new bootstrap.Modal(document.getElementById('adminPanelModal'), {})
                 this.modalHandler.show()
             },
-            editForm: function(index = (this.pets.slice(-1)[0].id + 1)) {
+            editForm: function(index = (this.freePets.slice(-1)[0].id + 1)) {
                 console.log(index)
                 this.activeForm = this.$refs['editref-' + index]
                 this.activeFormRef = this.activeForm[0].__vnode.ref.r.substring(8)
@@ -305,36 +371,36 @@
             }
             ,
             webadd: function(packet){
-                this.pets.push(packet)
-                this.sumPets = [ ...this.pets, ...this.reservedPets ]
+                this.freePets.push(packet)
+                this.sumPets = [ ...this.freePets, ...this.reservedPets ]
                 localStorage.setItem('sumPets', JSON.stringify(this.sumPets))
             },
             webedit: function(packet){
                 // overwrite said pet object attributes rather than remove and add a new object
                 if (packet.bookedBy !== ""){
-                    var petIndex = this.pets.findIndex(object => {
+                    var petIndex = this.freePets.findIndex(object => {
                     return object.id === packet.id;
                     })
-                    this.pets.splice(petIndex, 1);
+                    this.freePets.splice(petIndex, 1);
                     this.reservedPets.push(packet)
-                    this.sumPets = [ ...this.pets, ...this.reservedPets ]
+                    this.sumPets = [ ...this.freePets, ...this.reservedPets ]
                     localStorage.setItem('sumPets', JSON.stringify(this.sumPets))
                 }
                 else {
                     try {
-                        Object.assign(this.pets.findById(packet.id), packet);
+                        Object.assign(this.freePets.findById(packet.id), packet);
                     }
                     catch (error){
                         Object.assign(this.reservedPets.findById(packet.id), packet);
                     }
                 
-                    this.sumPets = [ ...this.pets, ...this.reservedPets ]
+                    this.sumPets = [ ...this.freePets, ...this.reservedPets ]
                     localStorage.setItem('sumPets', JSON.stringify(this.sumPets))
                 }
             },
             webremove: function(packet){
                 this.removePet(parseInt(packet))
-                this.sumPets = [ ...this.pets, ...this.reservedPets ]
+                this.sumPets = [ ...this.freePets, ...this.reservedPets ]
                 localStorage.setItem('sumPets', JSON.stringify(this.sumPets))
             }
             ,
@@ -342,11 +408,10 @@
                 console.log(packet)
             }
             ,
-            book: async function (id) {
-                let response = await this.send('PATCH', `https://localhost:443/pets/${id}`, {
-                    id: id,
-                    sessionId: this.sessionId
-                });
+            book: async function (petId) {
+                let requestBody = {id: petId}
+                let response = await this.send('PATCH', `https://localhost:443/reservepet`, this.authHeaders, requestBody);
+                console.log(response)
                 if (response.ok) {
                     alert("The booking was a success!");
                 }
@@ -363,22 +428,29 @@
                 }
             },
             logIn: async function () {
-                let response = await this.send('POST', `https://localhost:443/sessions`, {
+                sendBody = {
                     username: this.username,
                     password: this.password
-                });
+                }
+                let response = await this.send('POST', `https://localhost:443/createJWT`, this.defaultHeaders, sendBody);
                 if (response.ok) {
-                    this.sessionId = response.body.sessionId;
-                    localStorage.setItem("sessionId", this.sessionId);
+                    this.JWTTOKEN = response.body.JWTTOKEN;
+                    window.localStorage.setItem("JWTTOKEN", this.JWTTOKEN);
                     this.modalHandler.hide()
                     document.getElementById('displayedUsername').innerText = this.username
                     this.adminStatus = response.body.isAdmin
                 }
+                location.reload()
             },
             register: async function () {
-                let response = await this.send('POST', `https://localhost:443/users`, {
+                let response = await this.send('POST', `https://localhost:443/users`,
+                {
+                    'Content-Type': 'application/json'
+                },
+                {
                     username: this.username,
-                    password: this.password
+                    password: this.password,
+                    email: this.email
                 });
                 if (response.ok) {
                     this.sessionId = response.body.sessionId;
@@ -389,24 +461,22 @@
                 }
             },
             logout: async function () {
-                let response = await this.send('DELETE', `https://localhost:443/sessions`, {
-                    sessionId: this.sessionId
-                });
-                if (response.ok) {
-                    this.sessionId = null;
-                    localStorage.clear();
-                    document.getElementById('displayedUsername').innerText = null
-                    this.modalHandler.hide();
-                }
+                this.JWTTOKEN = null;
+                localStorage.clear();
+                document.getElementById('displayedUsername').innerText = null
+                this.adminStatus = false;
+                this.authHeaders = this.defaultHeaders
+                this.$forceUpdate()
             },
             confirmEdit: async function () {
-                let response = await this.send('PATCH', `https://localhost:443/pets/edit/${this.activeFormRef}`, {
+                console.log(this.activeForm[0].children[0].innerText)
+                let response = await this.send('PATCH', `https://localhost:443/pets/edit/${this.activeFormRef}`, this.authHeaders, {
                     sessionId: parseInt(this.sessionId),
                     id: this.activeFormRef,
                     name: this.activeForm[0].children[1].innerText,
                     sex: this.activeForm[0].children[2].innerText,
                     species: this.activeForm[0].children[3].innerText,
-                    img: window.location.origin + this.activeForm[0].children[0].innerText,
+                    img: this.activeForm[0].children[0].innerText,
                     bookedBy: this.activeForm[0].children[4].innerText ? this.activeForm[0].children[4].innerText : ""
                 });
                 if (response.ok) {
@@ -430,7 +500,8 @@
                 if (this.img == null) {
                         this.defaultImage = `https://localhost/img/${this.species}default.png`
                     }
-                let response = await this.send('POST', `https://localhost:443/pets`, {
+                console.log(this.defaultImage)
+                let response = await this.send('POST', `https://localhost:443/pets`, this.authHeaders, {
                     sessionId: parseInt(this.sessionId),
                     name: this.name,
                     sex: this.sex,
@@ -444,7 +515,7 @@
                     alert("The item got added!");
                 }
             },
-            send: function (method, url, body) {
+            send: function (method, url, headers, body) {
                 async function CheckError(response) {
                     if (response.status >= 200 && response.status <= 299) {
                         let responseText = await response.text()
@@ -460,14 +531,15 @@
                         return {ok: false, status: response.status, body: responseObject || responseText}
                     }
                 }
-
-                return fetch(url, {
+                // sending body or not?
+                payload = body ? {
                     method: method,
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify(body)
-                })
+                    headers: headers,
+                    body: JSON.stringify(body)}:
+                    {method: method, headers: headers}
+                console.log(payload)
+
+                return fetch(url, payload)
                     .then(CheckError)
                     .then((jsonResponse) => {
                         return jsonResponse
