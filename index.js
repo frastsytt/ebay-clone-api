@@ -124,12 +124,15 @@ async function fetchGoogle(token) {
 app.post('/auth/google/callback', async function(req, res){
     try {
         le_response = await fetchGoogle(req.body.credential)
+        console.log(le_response)
         let user = users.find((user) => user.email === le_response.email)
+        console.log(user)
         if (!user) {
             user = {id: users.length + 1, email: le_response.email, username: le_response.name, password: "", isAdmin: false}
             users.push(user)
         }
-        return res.status(200).send({JWTTOKEN: generateAccessToken(user.username), isAdmin: user.isAdmin})
+        console.log(generateAccessToken(user.email))
+        return res.status(200).send({JWTTOKEN: generateAccessToken(user.email), isAdmin: user.isAdmin})
     }
     catch {
         return res.status(400).send( {error: 'Google authentication unsuccessful'})
@@ -350,7 +353,8 @@ app.post('/sessions', (req, res) => {
 })
 
 app.get('/refreshCredentials', authenticateToken, (req, res) => {
-    const user = users.find((user) => user.username === req.user.username);
+    const user = users.find((user) => user.email === req.user.username);
+    console.log(req.user)
     res.status(200).send({username: req.user.username, isAdmin: user.isAdmin})
 })
 
