@@ -504,7 +504,6 @@
                     }
                 console.log(this.defaultImage)
                 let response = await this.send('POST', `https://localhost:443/pets`, this.authHeaders, {
-                    sessionId: parseInt(this.sessionId),
                     name: this.name,
                     sex: this.sex,
                     species: this.species,

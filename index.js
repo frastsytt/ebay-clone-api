@@ -97,7 +97,7 @@ app.post('/createJWT', async (req, res) => {
     try {
         let user = users.find(user => user.username === req.body.username && user.password === req.body.password)
         if (!user) {
-            res.status(500).send('Wrong username or password')
+            res.status(401).send('Wrong username or password')
         }
         res.status(200).send({'JWTTOKEN':generateAccessToken(user.username), isAdmin: user.isAdmin})
     } catch (error) {
@@ -160,9 +160,6 @@ const users = [
     { id: 5, email: 'mirontsuk.steven@voco.ee', username: "Steven", password: "Password", isAdmin: true }
 ]
 
-let sessions = [
-    { id: 1, userId: 1 }
-]
 
 wss.on('connection', function connection(ws) {
     ws.on('message', function incoming(message) {
@@ -174,32 +171,6 @@ wss.on('connection', function connection(ws) {
 
     });
 });
-
-function requireAdmin(req, res, next) {
-    // Check that the sessionId is present
-    if (!req.body.sessionId) {
-        return res.status(400).send({ error: 'You have to login' })
-    }
-
-    // Check that the sessionId is valid
-    const sessionUser = sessions.find((session) => session.id === parseInt(req.body.sessionId));
-    if (!sessionUser) {
-        return res.status(401).send({ error: 'Invalid sessionId' })
-    }
-
-    // Check that the sessionId in the sessions has user in it
-    const user = users.findById(sessionUser.userId);
-    if (!user) {
-        return res.status(400).send({ error: 'SessionId does not have an user associated with it' })
-    }
-
-    // Check that the user is an admin
-    if (!user.isAdmin) {
-        return res.status(400).send({ error: 'Insufficient permissions' })
-    }
-    console.log('Someone succesfully authenticated.')
-    next()
-}
 
 function getTime(req) {
     return pets.findById(req.params.id);
@@ -213,11 +184,6 @@ Array.prototype.findBy = function (field, value) {
     return this.find(function (x) {
         return x[field] === value;
     })
-}
-
-// tagastab konkreetse kasutaja objekti tema hetkese sessioniId järgi.
-function getUsernameBySession(session) {
-    return users.find(user => user.id === (sessions.find(id => id.id === session).userId))
 }
 
 app.get('/reservedpets', authenticateToken, (req, res) => {
@@ -252,13 +218,11 @@ app.patch('/pets/edit/:id', authenticateToken, (req, res) => {
 })
 
 app.post('/pets', authenticateToken, (req, res) => {
-    // Add name, day, start, end and phone if provided
     let newPet = { id: 0, name: "", sex: "", species: "", img: "", bookedBy: "" }
     newPet.name = req.body.name
     newPet.sex = req.body.sex
     newPet.species = req.body.species
     newPet.img = req.body.img
-
     const ids = pets.map(object => {
         return object.id;
     });
@@ -317,49 +281,6 @@ app.patch('/reservepet', authenticateToken, (req, res) => {
     res.status(200).end()
 })
 
-app.post('/ ', (req, res) => {
-    if (!req.body.username || !req.body.password) {
-        return res.status(400).send({ error: 'One or all params are missing' })
-    }
-
-    let user = users.findBy('username', req.body.username);
-    if (user) {
-        return res.status(409).send({ error: 'Conflict: The user already exists. ' })
-    }
-
-    users.push({ id: users.length + 1, username: req.body.username, password: req.body.password, isAdmin: false })
-
-    user = users.findById(users.length);
-    let newSession = {
-        id: sessions.length + 1,
-        userId: user.id
-    }
-    sessions.push(newSession)
-    res.status(201).send({ sessionId: sessions.length })
-})
-
-app.post('/sessions', (req, res) => {
-
-    if (!req.body.username || !req.body.password) {
-        return res.status(400).send({ error: 'One or all params are missing' })
-    }
-    const user = users.find((user) => user.username === req.body.username && user.password === req.body.password);
-    if (!user) {
-        return res.status(401).send({ error: 'Unauthorized: username or password is incorrect' })
-    }
-    let newSession = {
-        id: sessions.length + 1,
-        userId: user.id
-    }
-    sessions.push(newSession)
-    res.status(201).send(
-        {
-            sessionId: sessions.length,
-            isAdmin: user.isAdmin
-        }
-    )
-})
-
 app.get('/refreshCredentials', authenticateToken, (req, res) => {
     var user = users.find((user) => user.email === req.user.username);
     if(typeof user === "undefined"){
@@ -384,10 +305,6 @@ app.get('/logs', authenticateToken, async (req,res) => {
     return res.status(200).send(sendLogs)
 })
 
-app.delete('/sessions', (req, res) => {
-    sessions = sessions.filter((session) => session.id === req.body.sessionId);
-    res.status(200).end()
-})
 
 httpServer.listen(8080, () => {
     console.log(`HTTP API up at: http://localhost:8080`)
