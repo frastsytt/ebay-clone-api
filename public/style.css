@@ -11,5 +11,5 @@ body {
     max-height: 300px;
 }
 .fixwidth {
-    width: 170px;
+    word-break: break-all;
 }

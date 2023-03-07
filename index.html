@@ -115,14 +115,14 @@
                         </tr>
                         </thead>
                         <tbody>
-                        <tr v-for="log in logs" class="fixwidth">
+                        <tr v-for="log in logs">
                             <td>{{ log.date }}</td>
                             <td>{{ log.method }}</td>
                             <td>{{ log.protocol }}</td>
                             <td>{{ log.url }}</td>
                             <td>{{ log.eventdata }}</td>
                             <td>{{ log.remoteaddress }}</td>
-                            <td>{{ log.content }}</td>
+                            <td class="fixwidth">{{ log.content }}</td>
                         </tr>
                         </tbody>
                     </table>
