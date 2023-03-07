@@ -30,7 +30,7 @@ const { type } = require('os');
 function initLogs() {
     try {
         if (!fs.existsSync('eventlog.log')) {
-            logline = `date@@@method@@@protocol@@@url@@@eventdata@@@remoteaddress\r\n`
+            logline = `date@@@method@@@protocol@@@url@@@eventdata@@@remoteaddress@@@content\r\n`
             fs.appendFile('eventlog.log', logline, function (err) {
                 if (err) throw err;
               });
@@ -43,19 +43,21 @@ function initLogs() {
 initLogs()
 // logger function to be triggered every time the app receives a request
 const logger = function (req, res, next) {
-    let eventdata
-    if (req.headers['authorization']){
-        const authHeader = req.headers['authorization']
-        const token = authHeader && authHeader.split(' ')[1]
-        if (token == null){ eventdata = "N/A" }
+    // extract user from JWT token
+    const authHeader = req.headers['authorization']
+    const token = authHeader && authHeader.split(' ')[1]
+    let matchedUser = ""
+    if (token != null) {
         jwt.verify(token, process.env.TOKEN_SECRET, (err, user) => {
-            eventdata = user.username
-        })
+            if (err) matchedUser = ""
+            else matchedUser = user.username
+        });
     }
-    logline = `${new Date().toISOString()}@@@${req.method}@@@${req.protocol}@@@${req.url}@@@${eventdata}@@@${req.socket?.remoteAddress}\r\n`
+    // log request to eventlog.log
+    logline = `${new Date().toISOString()}@@@${req.method}@@@${req.protocol}@@@${req.url}@@@${associateEmail(matchedUser)}@@@${req.socket.remoteAddress}@@@${JSON.stringify(req.body)}\r\n` 
     fs.appendFile('eventlog.log', logline, function (err) {
         if (err) throw err;
-      });
+        });
     next()
 }
 // use the logger middleware with app
@@ -81,6 +83,15 @@ function authenticateToken(req, res, next) {
     })
 }
 
+function associateEmail(input){
+    // return the user object associated with the email or username
+    let user = users.find((user) => user.email === input)
+    if (!user) {
+        user = users.find((user) => user.username === input)
+    }
+    return user ? user.username : input
+}
+
 app.post('/createJWT', async (req, res) => {
     // Generate JWT token for specified username
     try {
@@ -99,7 +110,7 @@ async function loadLogs() {
     let logs = []
     await new Promise((resolve, reject) => {
         fs.createReadStream("./eventlog.log")
-            .pipe(parse({columns: true, delimiter: "@@@", from_line: 1}))
+            .pipe(parse({columns: true, delimiter: "@@@", relax_quotes: true, from_line: 1}))
             .on("data", (row) => {
                 logs.push(row)
             })
@@ -124,14 +135,11 @@ async function fetchGoogle(token) {
 app.post('/auth/google/callback', async function(req, res){
     try {
         le_response = await fetchGoogle(req.body.credential)
-        console.log(le_response)
         let user = users.find((user) => user.email === le_response.email)
-        console.log(user)
         if (!user) {
             user = {id: users.length + 1, email: le_response.email, username: le_response.name, password: "", isAdmin: false}
             users.push(user)
         }
-        console.log(generateAccessToken(user.email))
         return res.status(200).send({JWTTOKEN: generateAccessToken(user.email), isAdmin: user.isAdmin})
     }
     catch {
@@ -212,7 +220,7 @@ function getUsernameBySession(session) {
     return users.find(user => user.id === (sessions.find(id => id.id === session).userId))
 }
 
-app.post('/reservedpets', authenticateToken, (req, res) => {
+app.get('/reservedpets', authenticateToken, (req, res) => {
     noReserve = pets.filter(reserved => reserved.bookedBy != "");
     res.send(noReserve)
 })
@@ -353,8 +361,10 @@ app.post('/sessions', (req, res) => {
 })
 
 app.get('/refreshCredentials', authenticateToken, (req, res) => {
-    const user = users.find((user) => user.email === req.user.username);
-    console.log(req.user)
+    var user = users.find((user) => user.email === req.user.username);
+    if(typeof user === "undefined"){
+        var user = users.find((user) => user.username === req.user.username);
+    }
     res.status(200).send({username: req.user.username, isAdmin: user.isAdmin})
 })
 

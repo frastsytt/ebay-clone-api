@@ -10,3 +10,6 @@ body {
     max-width: 300px;
     max-height: 300px;
 }
+.fixwidth {
+    width: 170px;
+}

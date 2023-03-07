@@ -104,23 +104,25 @@
                 <div class="modal-body">
                     <table class="table table-striped">
                         <thead>
-                        <tr>
+                        <tr class="fixwidth">
                             <th>Timestamp</th>
                             <th>Method</th>
                             <th>Protocol</th>
                             <th>Url</th>
                             <th>User</th>
                             <th>Remote address</th>
+                            <th>Content</th>
                         </tr>
                         </thead>
                         <tbody>
-                        <tr v-for="log in logs">
+                        <tr v-for="log in logs" class="fixwidth">
                             <td>{{ log.date }}</td>
                             <td>{{ log.method }}</td>
                             <td>{{ log.protocol }}</td>
                             <td>{{ log.url }}</td>
                             <td>{{ log.eventdata }}</td>
                             <td>{{ log.remoteaddress }}</td>
+                            <td>{{ log.content }}</td>
                         </tr>
                         </tbody>
                     </table>
@@ -294,12 +296,12 @@
                     this.adminStatus = response.body.isAdmin
                     console.log('refreshing')
                 });
-                await this.send('POST', 'https://localhost:443/reservedpets', this.authHeaders).then(response => {
+                await this.send('GET', 'https://localhost:443/reservedpets', this.authHeaders).then(response => {
                 this.reservedPets = response.body
             });
             }
             
-            await this.send('GET', 'https://localhost:443/pets/available', this.defaultHeaders).then(response => {
+            await this.send('GET', 'https://localhost:443/pets/available', this.JWTTOKEN ? this.authHeaders : this.defaultHeaders).then(response => {
                 this.freePets = response.body
             })
 
